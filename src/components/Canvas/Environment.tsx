@@ -1,27 +1,18 @@
 import React from 'react';
-import * as THREE from 'three';
 
-export const Environment: React.FC = () => {
+const Environment: React.FC = () => {
   return (
     <>
-      {/* Lighting */}
-      <ambientLight intensity={0.6} />
-      <directionalLight
-        position={[100, 100, 100]}
-        intensity={1}
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
-        castShadow
-      />
-
-      {/* Sky */}
-      <mesh scale={500}>
-        <sphereGeometry args={[1, 64, 64]} />
-        <meshBasicMaterial color="#87CEEB" side={THREE.BackSide} />
+      {/* Terrain plane */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1, 0]} receiveShadow>
+        <planeGeometry args={[2000, 2000]} />
+        <meshStandardMaterial color="#202020" roughness={0.9} metalness={0.1} />
       </mesh>
 
       {/* Fog for depth */}
-      <fog attach="fog" args={['#87CEEB', 100, 500]} />
+      <fog attach="fog" args={['#202020', 1000, 2000]} />
     </>
   );
 };
+
+export default Environment;

@@ -1,105 +1,98 @@
-import React, { useState } from 'react';
-import { Box, CssBaseline, AppBar, Toolbar, Typography, Drawer } from '@mui/material';
-import { SimulationCanvas } from './components/Canvas/SimulationCanvas';
-import { MetricsPanel } from './components/Dashboard/MetricsPanel';
-import { ThreatAssessment } from './components/Dashboard/ThreatAssessment';
-import { DroneLogViewer } from './components/Dashboard/DroneLogViewer';
-import { WinProbability } from './components/Dashboard/WinProbability';
-import { DroneSpawner } from './components/Controls/DroneSpawner';
-import { AssetManager } from './components/Controls/AssetManager';
-import { DroneEditor } from './components/Controls/DroneEditor';
-import { useSimulationStore } from './store/simulationStore';
+import React from 'react';
+import { ThemeProvider } from '@mui/material/styles';
+import MainLayout from './components/Layout/MainLayout';
+import SimulationCanvas from './components/Canvas/SimulationCanvas';
 
-const DRAWER_WIDTH = 300;
+// Dashboard panels
+import MetricsPanel from './components/Dashboard/MetricsPanel';
+import ThreatAssessment from './components/Dashboard/ThreatAssessment';
+import EventLog from './components/Dashboard/EventLog';
+import WinProbability from './components/Dashboard/WinProbability';
+import PerformanceMetrics from './components/Dashboard/PerformanceMetrics';
 
-export default function App() {
-  const { setSelectedDrone } = useSimulationStore();
-  const [editorOpen, setEditorOpen] = useState(false);
+// Control panels
+import DroneSpawner from './components/Controls/DroneSpawner';
+import AssetManager from './components/Controls/AssetManager';
+import SimulationControls from './components/Controls/SimulationControls';
+import ParameterTuning from './components/Controls/ParameterTuning';
+
+import { Box, Grid } from '@mui/material';
+import { alchiFlyTheme } from './styles/theme';
+import { useUIStore } from './store/uiStore';
+
+const panelComponents: { [key: string]: React.FC } = {
+  metrics: MetricsPanel,
+  threats: ThreatAssessment,
+  events: EventLog,
+  probability: WinProbability,
+  performance: PerformanceMetrics,
+};
+
+const App: React.FC = () => {
+  const activePanels = useUIStore((state) => state.activePanels);
 
   return (
-    <Box sx={{ display: 'flex', height: '100vh' }}>
-      <CssBaseline />
-
-      {/* Header */}
-      <AppBar position="fixed" sx={{ zIndex: 1300 }}>
-        <Toolbar>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            ðŸš AlchiFly - Autonomous Drone Swarm Defense Simulation
-          </Typography>
-          <Typography variant="body2">Score: 12,450 pts | Level: Expert</Typography>
-        </Toolbar>
-      </AppBar>
-
-      {/* Main Content */}
-      <Box
-        sx={{
-          flexGrow: 1,
-          marginTop: '64px',
-          display: 'flex',
-          overflow: 'hidden'
-        }}
-      >
-        {/* 3D Canvas */}
-        <Box sx={{ flex: 2, position: 'relative' }}>
-          <SimulationCanvas
-            cameraMode="free"
-            onDroneSelected={(id) => {
-              setSelectedDrone(id);
-              setEditorOpen(true);
+    <ThemeProvider theme={alchiFlyTheme}>
+      <MainLayout>
+        <Grid container spacing={1} sx={{ height: '100%', pt: 1 }}>
+          <Grid
+            item
+            xs={7}
+            sx={{
+              height: '100%',
+              minHeight: '700px',
+              maxHeight: '100vh',
+              position: 'relative',
+              borderRight: '2px solid #202020',
+              bgcolor: '#202020',
             }}
-          />
-        </Box>
-
-        {/* Right Dashboard */}
-        <Drawer
-          anchor="right"
-          variant="permanent"
-          sx={{
-            width: DRAWER_WIDTH * 2,
-            '& .MuiDrawer-paper': {
-              width: DRAWER_WIDTH * 2,
-              boxSizing: 'border-box',
-              marginTop: '64px',
-              overflowY: 'auto'
-            }
-          }}
-        >
-          <Box sx={{ p: 2 }}>
-            {/* Control Panel */}
-            <DroneSpawner />
-            <AssetManager />
-
-            {/* Tabs for Dashboard */}
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Metrics</Typography>
-              <MetricsPanel />
+          >
+            {/* Main 3D simulation canvas */}
+            <SimulationCanvas />
+            {/* Control panels (bottom overlay) */}
+            <Box
+              sx={{
+                position: 'absolute',
+                left: 0,
+                bottom: 0,
+                width: '100%',
+                bgcolor: 'rgba(32,32,32,0.95)',
+                px: 2,
+                py: 1,
+                zIndex: 2,
+              }}
+            >
+              <Grid container spacing={1}>
+                <Grid item>
+                  <SimulationControls />
+                </Grid>
+                <Grid item>
+                  <DroneSpawner />
+                </Grid>
+                <Grid item>
+                  <AssetManager />
+                </Grid>
+                <Grid item>
+                  <ParameterTuning />
+                </Grid>
+              </Grid>
             </Box>
-
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Threats</Typography>
-              <ThreatAssessment />
+          </Grid>
+          <Grid item xs={5} sx={{ height: '100%', bgcolor: '#202020', overflowY: 'auto' }}>
+            {/* Sidebar dashboard panels */}
+            <Box sx={{ px: 1, pt: 7 }}>
+              {activePanels.map(panelKey => {
+                const PanelComponent = panelComponents[panelKey];
+                return PanelComponent ? (
+                  <PanelComponent key={panelKey} />
+                ) : null;
+              })}
             </Box>
-
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Victory Probability</Typography>
-              <WinProbability />
-            </Box>
-
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Events</Typography>
-              <DroneLogViewer />
-            </Box>
-          </Box>
-        </Drawer>
-      </Box>
-
-      {/* Drone Editor Dialog */}
-      <DroneEditor
-        drone={null}
-        open={editorOpen}
-        onClose={() => setEditorOpen(false)}
-      />
-    </Box>
+          </Grid>
+        </Grid>
+      </MainLayout>
+    </ThemeProvider>
   );
-}
+};
 
+export default App;

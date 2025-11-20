@@ -1,79 +1,76 @@
 import React, { useState } from 'react';
-import { Box, Button, Select, MenuItem, TextField, Paper } from '@mui/material';
-import { useSimulationStore } from '../../store/simulationStore';
-import AddCircleIcon from '@mui/icons-material/AddCircle';
+import { Box, Card, CardContent, Typography, Button, ToggleButton, ToggleButtonGroup } from '@mui/material';
+import { wsService } from '../../services/websocket.service';
 
-export const DroneSpawner: React.FC = () => {
-  const { addFriendlyDrone, addHostileDrone, setIsDragging } = useSimulationStore();
-  const [droneType, setDroneType] = useState<'friendly' | 'hostile-aa' | 'hostile-ga'>('friendly');
-  const [quantity, setQuantity] = useState(1);
-  const [isDraggingMode, setIsDraggingMode] = useState(false);
+const DEFAULT_POSITION: [number, number, number] = [Math.random() * 800 - 400, 10, Math.random() * 800 - 400];
 
-  const handleSpawn = () => {
-    for (let i = 0; i < quantity; i++) {
-      const randomPos = {
-        x: Math.random() * 200 - 100,
-        y: Math.random() * 50 + 20,
-        z: Math.random() * 200 - 100
-      };
+const DroneSpawner: React.FC = () => {
+  const [droneType, setDroneType] = useState<'friendly' | 'hostile-air' | 'hostile-ground'>('friendly');
+  const [position, setPosition] = useState<[number, number, number]>(DEFAULT_POSITION);
 
-      if (droneType === 'friendly') {
-        addFriendlyDrone({
-          position: randomPos,
-          type: 'friendly'
-        } as any);
-      } else {
-        const type = droneType === 'hostile-aa' ? 'air-to-air' : 'ground-attack';
-        addHostileDrone({
-          position: randomPos,
-          type: type
-        } as any);
-      }
-    }
+  const handleTypeChange = (
+    _: React.MouseEvent<HTMLElement>,
+    newType: 'friendly' | 'hostile-air' | 'hostile-ground' | null
+  ) => {
+    if (newType) setDroneType(newType);
   };
 
-  const handleDragMode = () => {
-    setIsDraggingMode(!isDraggingMode);
-    setIsDragging(!isDraggingMode);
+  const spawnDrone = () => {
+    wsService.send('command:spawn', { droneType, position });
+    setPosition([Math.random() * 800 - 400, 10, Math.random() * 800 - 400] as [number, number, number]);
   };
 
   return (
-    <Paper sx={{ p: 2, mb: 2 }}>
-      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-        <Select
-          value={droneType}
-          onChange={(e) => setDroneType(e.target.value as any)}
-          sx={{ minWidth: 150 }}
-        >
-          <MenuItem value="friendly">Friendly Drone</MenuItem>
-          <MenuItem value="hostile-aa">Hostile (Air-to-Air)</MenuItem>
-          <MenuItem value="hostile-ga">Hostile (Ground-Attack)</MenuItem>
-        </Select>
-
-        <TextField
-          type="number"
-          label="Quantity"
-          value={quantity}
-          onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-          inputProps={{ min: 1, max: 10 }}
-          sx={{ width: 100 }}
-        />
-
-        <Button
-          variant="contained"
-          startIcon={<AddCircleIcon />}
-          onClick={handleSpawn}
-        >
-          Spawn
-        </Button>
-
-        <Button
-          variant={isDraggingMode ? 'contained' : 'outlined'}
-          onClick={handleDragMode}
-        >
-          {isDraggingMode ? 'Dragging: ON' : 'Drag Mode'}
-        </Button>
-      </Box>
-    </Paper>
+    <Box sx={{ p: 2 }}>
+      <Card sx={{ backgroundColor: '#2A2A2A' }}>
+        <CardContent>
+          <Typography variant="subtitle1" sx={{ color: '#FF4628', mb: 1 }}>
+            ➕ Spawn Drone
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+            <Box sx={{ flex: { xs: '1 1 100%', md: '1 1 calc(50% - 8px)' } }}>
+              <Typography variant="caption">Type</Typography>
+              <ToggleButtonGroup
+                color="primary"
+                value={droneType}
+                exclusive
+                onChange={handleTypeChange}
+                size="small"
+                sx={{ mt: 1 }}
+              >
+                <ToggleButton value="friendly">Friendly</ToggleButton>
+                <ToggleButton value="hostile-air">Hostile Air</ToggleButton>
+                <ToggleButton value="hostile-ground">Hostile Ground</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+            <Box sx={{ flex: { xs: '1 1 100%', md: '1 1 calc(50% - 8px)' } }}>
+              <Typography variant="caption">Position</Typography>
+              <Box display="flex" gap={1} mt={1}>
+                {position.map((coord, i) => (
+                  <input
+                    type="number"
+                    key={i}
+                    style={{ width: 60, background: '#202020', color: '#B8C8D7', border: '1px solid #B8C8D7', borderRadius: 4, padding: 2 }}
+                    value={coord}
+                    onChange={e => {
+                      const newPos = [...position];
+                      newPos[i] = parseFloat(e.target.value) || 0;
+                      setPosition(newPos as [number, number, number]);
+                    }}
+                  />
+                ))}
+              </Box>
+            </Box>
+            <Box sx={{ flex: '1 1 100%' }}>
+              <Button variant="contained" color="primary" onClick={spawnDrone} sx={{ mt: 2 }}>
+                Spawn
+              </Button>
+            </Box>
+          </Box>
+        </CardContent>
+      </Card>
+    </Box>
   );
 };
+
+export default DroneSpawner;

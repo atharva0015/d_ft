@@ -12,7 +12,8 @@ import {
 import { useSimulationStore } from '../../store/simulationStore';
 
 export const DroneLogViewer: React.FC = () => {
-  const { eventLogs } = useSimulationStore();
+  const store = useSimulationStore();
+  const eventLogs = (store as any).eventLogs ?? [];
   const [filter, setFilter] = React.useState('all');
   const [search, setSearch] = React.useState('');
 

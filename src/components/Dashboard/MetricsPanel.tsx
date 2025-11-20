@@ -1,86 +1,212 @@
 import React, { useMemo } from 'react';
-import Paper from '@mui/material/Paper';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
+import {
+  Card,
+  CardContent,
+  Typography,
+  Box,
+  LinearProgress,
+} from '@mui/material';
 import { useSimulationStore } from '../../store/simulationStore';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-export const MetricsPanel: React.FC = () => {
-  const { friendlyDrones, hostileDrones, assets, metricsHistory } = useSimulationStore();
+const MetricsPanel: React.FC = () => {
+  const drones = useSimulationStore((state) => state.drones);
+  const assets = useSimulationStore((state) => state.assets);
 
-  const stats = useMemo(() => ({
-    friendlyActive: friendlyDrones.filter((d: { isActive: any; }) => d.isActive).length,
-    hostileActive: hostileDrones.filter((d: { isActive: any; }) => d.isActive).length,
-    assetsProtected: assets.filter((a: { isThreatened: any; }) => !a.isThreatened).length,
-    assetsThreatened: assets.filter((a: { isThreatened: any; }) => a.isThreatened).length,
-    avgFriendlyHealth: friendlyDrones.length > 0
-      ? friendlyDrones.reduce((sum: any, d: { health: any; }) => sum + d.health, 0) / friendlyDrones.length
-      : 0,
-    avgAmmo: friendlyDrones.length > 0
-      ? friendlyDrones.reduce((sum: any, d: { ammo: any; }) => sum + (d.ammo || 0), 0) / friendlyDrones.length
-      : 0,
-    totalEngagements: friendlyDrones.filter((d: { fsmState: string; }) => d.fsmState === 'ENGAGE').length
-  }), [friendlyDrones, hostileDrones, assets]);
+  // Calculate metrics
+  const metrics = useMemo(() => {
+    const friendlyDrones = drones.filter((d) => d.type === 'friendly');
+    const hostileAirDrones = drones.filter((d) => d.type === 'hostile-air');
+    const hostileGroundDrones = drones.filter((d) => d.type === 'hostile-ground');
+
+    const avgHealth =
+      friendlyDrones.length === 0
+        ? 0
+        : friendlyDrones.reduce((sum, d) => sum + d.health, 0) / friendlyDrones.length;
+
+    const avgAmmo =
+      friendlyDrones.length === 0
+        ? 0
+        : friendlyDrones.reduce((sum, d) => sum + d.ammo, 0) / friendlyDrones.length;
+
+    const activeEngagements = friendlyDrones.filter((d) => d.fsmState === 'ENGAGE').length;
+
+    const assetsProtected = assets.filter((a) => a.health > 0).length;
+
+    return {
+      friendlyCount: friendlyDrones.length,
+      hostileAirCount: hostileAirDrones.length,
+      hostileGroundCount: hostileGroundDrones.length,
+      avgHealth: Math.round(avgHealth),
+      avgAmmo: Math.round(avgAmmo),
+      activeEngagements,
+      assetsProtected,
+      totalAssets: assets.length,
+    };
+  }, [drones, assets]);
+
+  const MetricCard: React.FC<{
+    title: string;
+    value: string | number;
+    color: string;
+    subtitle?: string;
+  }> = ({ title, value, color, subtitle }) => (
+    <Card sx={{ height: '100%', backgroundColor: '#2A2A2A' }}>
+      <CardContent>
+        <Typography variant="body2" color="text.secondary" gutterBottom>
+          {title}
+        </Typography>
+        <Typography variant="h4" sx={{ color, fontWeight: 'bold' }}>
+          {value}
+        </Typography>
+        {subtitle && (
+          <Typography variant="caption" color="text.secondary">
+            {subtitle}
+          </Typography>
+        )}
+      </CardContent>
+    </Card>
+  );
 
   return (
-    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-      {/* Force Status */}
-      <Box sx={{ width: { xs: '100%', sm: 'calc(50% - 8px)', md: 'calc(25% - 12px)' } }}>
-        <Paper sx={{ p: 2, textAlign: 'center' }}>
-          <Typography variant="overline" color="textSecondary">Friendly Drones</Typography>
-          <Typography variant="h4" sx={{ color: '#1E90FF' }}>
-            {stats.friendlyActive}
-          </Typography>
-          <Typography variant="body2">Active / Engaged: {stats.totalEngagements}</Typography>
-        </Paper>
-      </Box>
+    <Box sx={{ p: 2 }}>
+      <Typography variant="h6" gutterBottom sx={{ color: '#FF4628' }}>
+        📊 Simulation Metrics
+      </Typography>
 
-      <Box sx={{ width: { xs: '100%', sm: 'calc(50% - 8px)', md: 'calc(25% - 12px)' } }}>
-        <Paper sx={{ p: 2, textAlign: 'center' }}>
-          <Typography variant="overline" color="textSecondary">Hostile Drones</Typography>
-          <Typography variant="h4" sx={{ color: '#FF4500' }}>
-            {stats.hostileActive}
-          </Typography>
-        </Paper>
-      </Box>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2 }}>
+        {/* Friendly Drones */}
+        <Box>
+          <MetricCard
+            title="Friendly Drones"
+            value={metrics.friendlyCount}
+            color="#1E90FF"
+          />
+        </Box>
 
-      <Box sx={{ width: { xs: '100%', sm: 'calc(50% - 8px)', md: 'calc(25% - 12px)' } }}>
-        <Paper sx={{ p: 2, textAlign: 'center' }}>
-          <Typography variant="overline" color="textSecondary">Assets Protected</Typography>
-          <Typography variant="h4" sx={{ color: '#228B22' }}>
-            {stats.assetsProtected}/{assets.length}
-          </Typography>
-          <Typography variant="caption" sx={{ color: stats.assetsThreatened > 0 ? '#FF0000' : '#228B22' }}>
-            {stats.assetsThreatened > 0 ? `âš ï¸ ${stats.assetsThreatened} Threatened!` : 'All Safe'}
-          </Typography>
-        </Paper>
-      </Box>
+        {/* Hostile Air Drones */}
+        <Box>
+          <MetricCard
+            title="Hostile Air"
+            value={metrics.hostileAirCount}
+            color="#FF0000"
+          />
+        </Box>
 
-      <Box sx={{ width: { xs: '100%', sm: 'calc(50% - 8px)', md: 'calc(25% - 12px)' } }}>
-        <Paper sx={{ p: 2, textAlign: 'center' }}>
-          <Typography variant="overline" color="textSecondary">Health / Ammo</Typography>
-          <Typography variant="body2">{stats.avgFriendlyHealth.toFixed(0)}%</Typography>
-          <Typography variant="body2">{stats.avgAmmo.toFixed(1)}/10</Typography>
-        </Paper>
-      </Box>
+        {/* Hostile Ground Drones */}
+        <Box>
+          <MetricCard
+            title="Hostile Ground"
+            value={metrics.hostileGroundCount}
+            color="#FF4628"
+          />
+        </Box>
 
-      {/* Metrics Chart */}
-      <Box sx={{ width: '100%' }}>
-        <Paper sx={{ p: 2 }}>
-          <Typography variant="h6" gutterBottom>Metrics Trend</Typography>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={metricsHistory}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="time" />
-              <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey="threatLevel" stroke="#FF4500" name="Threat Level" />
-              <Line type="monotone" dataKey="friendlyHealth" stroke="#1E90FF" name="Avg Health" />
-              <Line type="monotone" dataKey="protection" stroke="#228B22" name="Protection %" />
-            </LineChart>
-          </ResponsiveContainer>
-        </Paper>
+        {/* Active Engagements */}
+        <Box>
+          <MetricCard
+            title="Active Engagements"
+            value={metrics.activeEngagements}
+            color="#FFC107"
+          />
+        </Box>
+
+        {/* Average Health */}
+        <Box sx={{ gridColumn: { xs: '1', md: 'span 2' } }}>
+          <Card sx={{ backgroundColor: '#2A2A2A' }}>
+            <CardContent>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Average Friendly Health
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box sx={{ flexGrow: 1 }}>
+                  <LinearProgress
+                    variant="determinate"
+                    value={metrics.avgHealth}
+                    sx={{
+                      height: 10,
+                      borderRadius: 5,
+                      backgroundColor: '#202020',
+                      '& .MuiLinearProgress-bar': {
+                        backgroundColor:
+                          metrics.avgHealth > 60
+                            ? '#4CAF50'
+                            : metrics.avgHealth > 30
+                            ? '#FFC107'
+                            : '#FF4628',
+                      },
+                    }}
+                  />
+                </Box>
+                <Typography variant="h6" sx={{ minWidth: 60 }}>
+                  {metrics.avgHealth}%
+                </Typography>
+              </Box>
+            </CardContent>
+          </Card>
+        </Box>
+
+        {/* Average Ammo */}
+        <Box sx={{ gridColumn: { xs: '1', md: 'span 2' } }}>
+          <Card sx={{ backgroundColor: '#2A2A2A' }}>
+            <CardContent>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Average Friendly Ammo
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box sx={{ flexGrow: 1 }}>
+                  <LinearProgress
+                    variant="determinate"
+                    value={metrics.avgAmmo}
+                    sx={{
+                      height: 10,
+                      borderRadius: 5,
+                      backgroundColor: '#202020',
+                      '& .MuiLinearProgress-bar': {
+                        backgroundColor: '#B8C8D7',
+                      },
+                    }}
+                  />
+                </Box>
+                <Typography variant="h6" sx={{ minWidth: 60 }}>
+                  {metrics.avgAmmo}%
+                </Typography>
+              </Box>
+            </CardContent>
+          </Card>
+        </Box>
+
+        {/* Asset Protection */}
+        <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+          <Card sx={{ backgroundColor: '#2A2A2A' }}>
+            <CardContent>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Asset Protection Status
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box sx={{ flexGrow: 1 }}>
+                  <LinearProgress
+                    variant="determinate"
+                    value={(metrics.assetsProtected / metrics.totalAssets) * 100}
+                    sx={{
+                      height: 10,
+                      borderRadius: 5,
+                      backgroundColor: '#202020',
+                      '& .MuiLinearProgress-bar': {
+                        backgroundColor: '#4CAF50',
+                      },
+                    }}
+                  />
+                </Box>
+                <Typography variant="h6" sx={{ minWidth: 100 }}>
+                  {metrics.assetsProtected} / {metrics.totalAssets}
+                </Typography>
+              </Box>
+            </CardContent>
+          </Card>
+        </Box>
       </Box>
     </Box>
   );
 };
+
+export default MetricsPanel;

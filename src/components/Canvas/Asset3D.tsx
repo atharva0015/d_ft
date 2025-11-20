@@ -1,67 +1,73 @@
 import React, { useRef } from 'react';
-import * as THREE from 'three';
-import { useGLTF, Text } from '@react-three/drei';
-import { useFrame } from '@react-three/fiber';
-import { AssetData } from '../../types/simulation';
+import { Mesh } from 'three';
+import { Html } from '@react-three/drei';
+import { Asset } from '../../types/asset.types';
+import { useUIStore } from '../../store/uiStore';
+import ThreatDome from './ThreatDome';
 
 interface Asset3DProps {
-  asset: AssetData;
-  onClick: () => void;
+  asset: Asset;
 }
 
-export const Asset3D: React.FC<Asset3DProps> = ({ asset, onClick }) => {
-  const meshRef = useRef<THREE.Group>(null);
-  const { scene } = useGLTF('/models/asset-structure.glb');
+const Asset3D: React.FC<Asset3DProps> = ({ asset }) => {
+  const meshRef = useRef<Mesh>(null);
+  const selectedAssetId = useUIStore((state) => state.selectedAssetId);
+  const selectAsset = useUIStore((state) => state.selectAsset);
 
-  // Protective zone radius
-  const threatRange = asset.threatRange || 32;
-
-  // Asset safety status color
-  const safetyColor = asset.isThreatened 
-    ? asset.isUnderAttack ? '#8B0000' : '#FF4500'
-    : '#228B22';
+  const isSelected = selectedAssetId === asset.id;
 
   return (
-    <group
-      ref={meshRef}
-      position={asset.position ? [asset.position.x, asset.position.y, asset.position.z] : undefined}
-      onClick={onClick}
-    >
-      {/* Asset model */}
-      <primitive object={scene.clone()} />
-
-      {/* Protective dome - threat range visualization */}
-      <mesh position={[0, 0, 0]}>
-        <sphereGeometry args={[threatRange, 32, 32]} />
+    <group>
+      {/* Asset cylinder */}
+      <mesh
+        ref={meshRef}
+        position={asset.position}
+        onClick={() => selectAsset(asset.id)}
+      >
+        <cylinderGeometry args={[15, 15, 30, 32]} />
         <meshStandardMaterial
-          color={safetyColor}
-          opacity={0.15}
-          transparent
-          wireframe
+          color="#B8C8D7"
+          metalness={0.6}
+          roughness={0.4}
         />
       </mesh>
 
-      {/* Asset ID label */}
-      <Text
-        position={[0, 15, 0]}
-        fontSize={2}
-        color="#FFFFFF"
-        maxWidth={200}
-        anchorX="center"
-        anchorY="middle"
-      >
-        {String(asset.id)}
-      </Text>
+      {/* Threat dome */}
+      <ThreatDome
+        position={asset.position}
+        radius={asset.threatRadius}
+        opacity={0.15}
+      />
 
-      {/* Threat indicator */}
-      {asset.isThreatened && (
-        <pointLight
-          position={[0, 5, 0]}
-          color="#FF0000"
-          intensity={1.5}
-          distance={30}
-        />
+      {/* Selection indicator */}
+      {isSelected && (
+        <mesh position={asset.position} rotation={[Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[20, 25, 32]} />
+          <meshBasicMaterial color="#FF4628" transparent opacity={0.8} />
+        </mesh>
       )}
+
+      {/* Asset label */}
+      <Html position={[asset.position.x, asset.position.y + 30, asset.position.z]} center>
+        <div
+          style={{
+            backgroundColor: '#202020',
+            color: '#B8C8D7',
+            padding: '4px 8px',
+            borderRadius: '4px',
+            fontSize: '12px',
+            fontWeight: 'bold',
+            border: '1px solid #FF4628',
+            whiteSpace: 'nowrap',
+            pointerEvents: 'none',
+          }}
+        >
+          {asset.name}
+          {asset.isPinned && ' 📌'}
+        </div>
+      </Html>
     </group>
   );
 };
+
+export default Asset3D;

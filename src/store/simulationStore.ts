@@ -1,118 +1,151 @@
 import { create } from 'zustand';
-import { DroneData, HostileDroneData } from '../types/drone';
-import { AssetData, EventLog } from '../types/simulation';
+import { Drone } from '../types/drone.types';
+import { Asset } from '../types/asset.types';
+import { SimulationConfig, SimulationMetrics } from '../types/simulation.types';
+import { Vector3 } from 'three';
 
-export interface SimulationState {
-  // Drone data
-  friendlyDrones: DroneData[];
-  hostileDrones: HostileDroneData[];
-  assets: AssetData[];
+interface SimulationStore {
+  // State
+  drones: Drone[];
+  assets: Asset[];
+  config: SimulationConfig;
+  metrics: SimulationMetrics;
+  isRunning: boolean;
+  simulationTime: number;
 
-  // Simulation state
-  isPlaying: boolean;
-  currentTime: number;
-  totalTime: number;
-  speed: number;
-  difficulty: 'easy' | 'normal' | 'hard' | 'expert';
-  scenarioName: string;
+  // Drone actions
+  addDrone: (drone: Drone) => void;
+  updateDrone: (id: string, updates: Partial<Drone>) => void;
+  removeDrone: (id: string) => void;
+  clearDrones: () => void;
 
-  // UI state
-  selectedDroneId: string | null;
-  isDragging: boolean;
-  draggedDroneId: string | null;
+  // Asset actions
+  addAsset: (asset: Asset) => void;
+  updateAsset: (id: string, updates: Partial<Asset>) => void;
+  removeAsset: (id: string) => void;
+
+  // Simulation controls
+  startSimulation: () => void;
+  pauseSimulation: () => void;
+  resetSimulation: () => void;
+  setSpeed: (speed: number) => void;
+  updateConfig: (config: Partial<SimulationConfig>) => void;
 
   // Metrics
-  metricsHistory: any[];
-  eventLogs: EventLog[];
-
-  // Actions
-  addFriendlyDrone: (drone: Partial<DroneData>) => void;
-  addHostileDrone: (drone: Partial<HostileDroneData>) => void;
-  updateFriendlyDrone: (drone: DroneData) => void;
-  updateHostileDrone: (drone: HostileDroneData) => void;
-  addAsset: (asset: Partial<AssetData>) => void;
-  updateAsset: (id: string, asset: Partial<AssetData>) => void;
-  addEventLog: (log: EventLog) => void;
-  setIsDragging: (isDragging: boolean) => void;
-  setSelectedDrone: (id: string | null) => void;
-  setIsPlaying: (isPlaying: boolean) => void;
-  setSpeed: (speed: number) => void;
-  setCurrentTime: (time: number) => void;
-  setDifficulty: (difficulty: 'easy' | 'normal' | 'hard' | 'expert') => void;
+  updateMetrics: (metrics: Partial<SimulationMetrics>) => void;
 }
 
-export const useSimulationStore = create<SimulationState>((set) => ({
-  friendlyDrones: [],
-  hostileDrones: [],
-  assets: [],
-  isPlaying: false,
-  currentTime: 0,
-  totalTime: 300,
-  speed: 1,
-  difficulty: 'normal',
-  scenarioName: 'AlchiFly Defense Mission',
-  selectedDroneId: null,
-  isDragging: false,
-  draggedDroneId: null,
-  metricsHistory: [],
-  eventLogs: [],
-
-  addFriendlyDrone: (drone: Partial<DroneData>) => set((state) => ({
-    friendlyDrones: [...state.friendlyDrones, {
-      id: `F-${state.friendlyDrones.length + 1}`,
-      isActive: true,
+export const useSimulationStore = create<SimulationStore>((set, get) => ({
+  // Initial state
+  drones: [],
+  assets: [
+    {
+      id: 'asset-1',
+      name: 'Command Center',
+      position: new Vector3(0, 0, 0),
       health: 100,
-      ammo: 10,
-      fsmState: 'PATROL',
-      speed: 10,
-      sensorRange: 100,
-      engagementRange: 50,
-      ...drone
-    } as DroneData]
-  })),
-
-  addHostileDrone: (drone: Partial<HostileDroneData>) => set((state) => ({
-    hostileDrones: [...state.hostileDrones, {
-      id: `H-${state.hostileDrones.length + 1}`,
-      isActive: true,
-      health: 80,
-      threatScore: { st_total: 0, ptype: 0, pprox: 0, ccost: 0 },
-      unattended: true,
-      ...drone
-    } as HostileDroneData]
-  })),
-
-  updateFriendlyDrone: (drone: DroneData) => set((state) => ({
-    friendlyDrones: state.friendlyDrones.map(d => d.id === drone.id ? drone : d)
-  })),
-
-  updateHostileDrone: (drone: HostileDroneData) => set((state) => ({
-    hostileDrones: state.hostileDrones.map(d => d.id === drone.id ? drone : d)
-  })),
-
-  addAsset: (asset: Partial<AssetData>) => set((state) => ({
-    assets: [...state.assets, {
-      id: `ASSET-${state.assets.length + 1}`,
-      isMoving: false,
+      maxHealth: 100,
+      threatRadius: 500,
+      isChaseMode: false,
       isPinned: true,
-      isThreatened: false,
-      threatRange: 32,
-      ...asset
-    } as AssetData]
-  })),
+    },
+  ],
+  config: {
+    weights: {
+      w1: 0.4,
+      w2: 0.4,
+      w3: 0.2,
+    },
+    speed: 1.0,
+    difficulty: 'normal',
+  },
+  metrics: {
+    friendlyCount: 0,
+    hostileAirCount: 0,
+    hostileGroundCount: 0,
+    assetsProtected: 1,
+    totalAssets: 1,
+    activeEngagements: 0,
+    avgFriendlyHealth: 0,
+    avgFriendlyAmmo: 0,
+    totalKills: 0,
+    totalLosses: 0,
+  },
+  isRunning: false,
+  simulationTime: 0,
 
-  updateAsset: (id: string, asset: Partial<AssetData>) => set((state) => ({
-    assets: state.assets.map(a => a.id === id ? { ...a, ...asset } : a)
-  })),
+  // Drone actions
+  addDrone: (drone) =>
+    set((state) => ({
+      drones: [...state.drones, drone],
+    })),
 
-  addEventLog: (log: EventLog) => set((state) => ({
-    eventLogs: [...state.eventLogs.slice(-99), log]
-  })),
+  updateDrone: (id, updates) =>
+    set((state) => ({
+      drones: state.drones.map((drone) =>
+        drone.id === id ? { ...drone, ...updates } : drone
+      ),
+    })),
 
-  setIsDragging: (isDragging: boolean) => set({ isDragging }),
-  setSelectedDrone: (id: string | null) => set({ selectedDroneId: id }),
-  setIsPlaying: (isPlaying: boolean) => set({ isPlaying }),
-  setSpeed: (speed: number) => set({ speed }),
-  setCurrentTime: (currentTime: number) => set({ currentTime }),
-  setDifficulty: (difficulty: 'easy' | 'normal' | 'hard' | 'expert') => set({ difficulty })
+  removeDrone: (id) =>
+    set((state) => ({
+      drones: state.drones.filter((drone) => drone.id !== id),
+    })),
+
+  clearDrones: () => set({ drones: [] }),
+
+  // Asset actions
+  addAsset: (asset) =>
+    set((state) => ({
+      assets: [...state.assets, asset],
+    })),
+
+  updateAsset: (id, updates) =>
+    set((state) => ({
+      assets: state.assets.map((asset) =>
+        asset.id === id ? { ...asset, ...updates } : asset
+      ),
+    })),
+
+  removeAsset: (id) =>
+    set((state) => ({
+      assets: state.assets.filter((asset) => asset.id !== id),
+    })),
+
+  // Simulation controls
+  startSimulation: () => set({ isRunning: true }),
+  pauseSimulation: () => set({ isRunning: false }),
+  resetSimulation: () =>
+    set({
+      drones: [],
+      isRunning: false,
+      simulationTime: 0,
+      metrics: {
+        friendlyCount: 0,
+        hostileAirCount: 0,
+        hostileGroundCount: 0,
+        assetsProtected: 1,
+        totalAssets: 1,
+        activeEngagements: 0,
+        avgFriendlyHealth: 0,
+        avgFriendlyAmmo: 0,
+        totalKills: 0,
+        totalLosses: 0,
+      },
+    }),
+
+  setSpeed: (speed) =>
+    set((state) => ({
+      config: { ...state.config, speed },
+    })),
+
+  updateConfig: (config) =>
+    set((state) => ({
+      config: { ...state.config, ...config },
+    })),
+
+  updateMetrics: (metrics) =>
+    set((state) => ({
+      metrics: { ...state.metrics, ...metrics },
+    })),
 }));

@@ -1,84 +1,98 @@
-import React, { useRef, useEffect } from 'react';
+import React, { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
+import { OrbitControls, PerspectiveCamera, Grid } from '@react-three/drei';
+import { Box, CircularProgress } from '@mui/material';
 import { useSimulationStore } from '../../store/simulationStore';
-import { Environment } from './Environment';
-import { Drone3D } from './Drone3D';
-import { Asset3D } from './Asset3D';
-import { DragControls } from './DragControls';
+import { useUIStore } from '../../store/uiStore';
+import Drone3D from './Drone3D';
+import Asset3D from './Asset3D';
+import Environment from './Environment';
 
-interface SimulationCanvasProps {
-  cameraMode: 'free' | 'topdown' | 'follow' | 'focus';
-  onDroneSelected: (droneId: string) => void;
-}
-
-export const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
-  cameraMode,
-  onDroneSelected
-}) => {
-  const {
-    friendlyDrones,
-    hostileDrones,
-    assets,
-    isDragging,
-    draggedDroneId
-  } = useSimulationStore();
+const SimulationCanvas: React.FC = () => {
+  const drones = useSimulationStore((state) => state.drones);
+  const assets = useSimulationStore((state) => state.assets);
+  const cameraMode = useUIStore((state) => state.cameraMode);
 
   return (
-    <Canvas
-      shadows
-      camera={{ position: [0, 50, 100], fov: 50 }}
-      style={{ width: '100%', height: '100%' }}
-    >
-      {/* Lighting & Environment */}
-      <Environment />
+    <Box sx={{ width: '100%', height: '100%', position: 'relative' }}>
+      <Canvas
+        className="canvas-container"
+        shadows
+        gl={{ antialias: true, alpha: false }}
+      >
+        <Suspense fallback={null}>
+          {/* Camera */}
+          <PerspectiveCamera makeDefault position={[0, 500, 1000]} fov={60} />
+          
+          {/* Controls */}
+          <OrbitControls
+            enableDamping
+            dampingFactor={0.05}
+            minDistance={100}
+            maxDistance={2000}
+            maxPolarAngle={Math.PI / 2}
+          />
 
-      {/* Camera Controls */}
-      <PerspectiveCamera makeDefault position={[0, 50, 100]} />
-      <OrbitControls 
-        enableZoom 
-        enablePan 
-        autoRotate={cameraMode === 'free'}
-      />
+          {/* Lighting */}
+          <ambientLight intensity={0.4} />
+          <directionalLight
+            position={[500, 1000, 500]}
+            intensity={0.8}
+            castShadow
+            shadow-mapSize-width={2048}
+            shadow-mapSize-height={2048}
+          />
+          <hemisphereLight args={['#B8C8D7', '#202020', 0.3]} />
 
-      {/* Drag Controls for Spawn */}
-      {isDragging && draggedDroneId && <DragControls droneId={draggedDroneId} />}
+          {/* Environment */}
+          <Environment />
 
-      {/* Terrain */}
-      <mesh position={[0, -5, 0]} receiveShadow>
-        <planeGeometry args={[500, 500]} />
-        <meshStandardMaterial color="#2d5016" />
-      </mesh>
+          {/* Grid */}
+          <Grid
+            args={[2000, 2000]}
+            cellSize={50}
+            cellThickness={0.5}
+            cellColor="#B8C8D7"
+            sectionSize={200}
+            sectionThickness={1}
+            sectionColor="#FF4628"
+            fadeDistance={2000}
+            fadeStrength={1}
+            position={[0, -0.5, 0]}
+          />
 
-      {/* Protected Assets */}
-      {assets.map((asset: any) => (
-        <Asset3D
-          key={asset.id}
-          asset={asset}
-          onClick={() => onDroneSelected(asset.id)}
-        />
-      ))}
+          {/* Assets */}
+          {assets.map((asset) => (
+            <Asset3D key={asset.id} asset={asset} />
+          ))}
 
-      {/* Friendly Drones */}
-      {friendlyDrones.map((drone: any) => (
-        <Drone3D
-          key={drone.id}
-          drone={drone}
-          isFriendly={true}
-          onClick={() => onDroneSelected(drone.id)}
-        />
-      ))}
+          {/* Drones */}
+          {drones.map((drone) => (
+            <Drone3D key={drone.id} drone={drone} />
+          ))}
+        </Suspense>
+      </Canvas>
 
-      {/* Hostile Drones */}
-      {hostileDrones.map((drone: any) => (
-        <Drone3D
-          key={drone.id}
-          drone={drone}
-          isFriendly={false}
-          threatScore={drone.threatScore?.st_total}
-          onClick={() => onDroneSelected(drone.id)}
-        />
-      ))}
-    </Canvas>
+      {/* Loading overlay */}
+      <Box
+        sx={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          display: drones.length === 0 ? 'flex' : 'none',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 2,
+        }}
+      >
+        <CircularProgress sx={{ color: '#FF4628' }} />
+        <Box sx={{ color: '#B8C8D7', fontSize: '14px' }}>
+          Initializing Simulation...
+        </Box>
+      </Box>
+    </Box>
   );
 };
+
+export default SimulationCanvas;

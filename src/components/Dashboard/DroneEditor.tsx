@@ -10,24 +10,32 @@ import {
   Slider,
   Typography
 } from '@mui/material';
-import { DroneData } from '../../types/drone';
+import { Drone } from '../../types/drone.types';
 import { useSimulationStore } from '../../store/simulationStore';
 
 interface DroneEditorProps {
-  drone: DroneData | null;
+  drone: Drone | null;
   open: boolean;
   onClose: () => void;
 }
 
 export const DroneEditor: React.FC<DroneEditorProps> = ({ drone, open, onClose }) => {
-  const { updateFriendlyDrone } = useSimulationStore();
-  const [editedDrone, setEditedDrone] = useState<DroneData | null>(drone);
+  const updateDrone = useSimulationStore((state) => state.updateDrone);
+  const [editedDrone, setEditedDrone] = useState<Drone | null>(drone);
 
   if (!editedDrone) return null;
 
   const handleSave = () => {
-    if (editedDrone) {
-      updateFriendlyDrone(editedDrone);
+    if (editedDrone && drone) {
+      // Only pass the fields that changed
+      const updates: Partial<Drone> = {
+        health: editedDrone.health,
+        ammo: editedDrone.ammo,
+        speed: editedDrone.speed,
+        sensorRange: editedDrone.sensorRange,
+        engagementRange: editedDrone.engagementRange,
+      };
+      updateDrone(editedDrone.id, updates);
       onClose();
     }
   };
@@ -37,7 +45,7 @@ export const DroneEditor: React.FC<DroneEditorProps> = ({ drone, open, onClose }
       <DialogTitle>Edit Drone: {editedDrone.id}</DialogTitle>
 
       <DialogContent sx={{ pt: 2 }}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 } as const}>
           {/* ID */}
           <TextField
             fullWidth
